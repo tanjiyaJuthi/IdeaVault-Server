@@ -1,0 +1,49 @@
+import express from "express";
+
+import {verifyToken} from "../middleware/verifyToken.js";
+
+import { 
+    addIdea, 
+    deleteIdea,
+    featuredIdeaByCategory,
+    getAllIdea, 
+    getIdeaBySlug, 
+    updateIdea 
+} from '../controllers/ideaController.js';
+
+const IdeaRoutes = express.Router();
+
+IdeaRoutes.get(
+    "/",
+    getAllIdea
+);
+
+IdeaRoutes.get(
+    "/featured-idea",
+    featuredIdeaByCategory
+);
+
+IdeaRoutes.get(
+    "/:slug",
+    getIdeaBySlug
+);
+
+IdeaRoutes.post(
+    "/",
+    verifyToken,
+    addIdea
+);
+
+IdeaRoutes.patch(
+    "/:id",
+    verifyToken,
+    updateIdea
+);
+
+IdeaRoutes.delete(
+    "/:id",
+    verifyToken,
+    deleteIdea
+);
+
+export default IdeaRoutes;
