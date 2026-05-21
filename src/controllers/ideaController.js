@@ -10,25 +10,72 @@ export const addIdea = async (req, res) => {
         const { ideaCollection } = getCollections();
         const idea = req.body;
 
-        if (!idea || Object.keys(idea).length === 0) {
+        if (!idea || typeof idea !== "object") {
             return res.status(400).json({
                 success: false,
-                message: "Idea data is required",
+                message: "Invalid request body",
             });
         }
 
+        const requiredFields = [
+            "ideaTitle",
+            "shortDescription",
+            "category",
+            "tags",
+            "imageUrl",
+            "estimatedBudget",
+            "problemStatement",
+            "proposedSolution",
+            "detailedDescription",
+        ];
+
+        const missingFields = requiredFields.filter(
+            (field) => !idea[field] || idea[field].toString().trim() === ""
+        );
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required fields",
+                missingFields,
+            });
+        }
+
+        if (typeof idea.tags === "string") {
+            idea.tags = idea.tags
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean);
+        }
+
+        if (!Array.isArray(idea.tags)) {
+            return res.status(400).json({
+                success: false,
+                message: "Tags must be a string or array",
+            });
+        }
+
+        idea.tags = idea.tags.filter(Boolean);
+
         idea.slug = generateSlug(idea.ideaTitle);
 
-        const result = await ideaCollection.insertOne(idea);
-        
+        const result = await ideaCollection.insertOne({
+            ...idea,
+            createdAt: new Date(),
+        });
+
+        const createdIdea = await ideaCollection.findOne({
+            _id: result.insertedId,
+        });
+
         return res.status(201).json({
             success: true,
             message: "Idea created successfully",
-            data: result,
+            data: createdIdea,
         });
 
     } catch (error) {
-        // console.error("POST /idea error:", error);
+        console.error("POST /idea error:", error);
 
         return res.status(500).json({
             success: false,
@@ -125,6 +172,93 @@ export const featuredIdeaByCategory = async (req, res) => {
         return res.status(500).json({
         success: false,
         message: error.message,
+        });
+    }
+};
+
+// search idea
+export const searchIdeas = async (req, res) => {
+  try {
+    const { ideaCollection } = getCollections();
+
+    const {
+      search = "",
+      category = "",
+      startDate,
+      endDate,
+    } = req.query;
+
+    let query = {};
+
+    if (category && category !== "all") {
+      query.category = category;
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    if (search) {
+      query.ideaTitle = {
+        $regex: search,
+        $options: "i",
+      };
+    }
+
+    const result = await ideaCollection
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .toArray();
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ideas by user id
+export const getIdeasByUser = async (req, res) => {
+    try {
+        const { ideaCollection } = getCollections();
+        const userId = req.params.userId;
+
+        if (req.user.id !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden"
+            });
+        }
+
+        const result = await ideaCollection
+            .find({ userId })
+            .sort({ createdAt: -1 })
+            .toArray();
+
+        res.json({
+            success: true,
+            data: result,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
         });
     }
 };

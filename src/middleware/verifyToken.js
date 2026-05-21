@@ -16,14 +16,15 @@ export const verifyToken = async (req, res, next) => {
         }
 
         const token = authHeader.split(" ")[1];
-        if (!token) {
-            return res
-                .status(401)
-                .json({
-                    success: false,
-                    message: 'Unauthorized access!!'
-                });
-        }
+        console.log(token);
+            if (!token) {
+                return res
+                    .status(401)
+                    .json({
+                        success: false,
+                        message: 'Unauthorized access!!'
+                    });
+            }
 
         const { payload } = await jwtVerify(token, JWKS, {
             issuer: process.env.BETTER_AUTH_URL,

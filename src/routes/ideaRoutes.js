@@ -8,7 +8,9 @@ import {
     featuredIdeaByCategory,
     getAllIdea, 
     getIdeaBySlug, 
-    updateIdea 
+    updateIdea,
+    searchIdeas,
+    getIdeasByUser
 } from '../controllers/ideaController.js';
 
 const IdeaRoutes = express.Router();
@@ -19,12 +21,23 @@ IdeaRoutes.get(
 );
 
 IdeaRoutes.get(
+    "/user/:userId", 
+    verifyToken, 
+    getIdeasByUser
+);
+
+IdeaRoutes.get(
+    "/search",
+    searchIdeas
+);
+
+IdeaRoutes.get(
     "/featured-idea",
     featuredIdeaByCategory
 );
 
 IdeaRoutes.get(
-    "/:slug",
+    "/slug/:slug",
     getIdeaBySlug
 );
 
