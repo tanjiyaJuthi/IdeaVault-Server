@@ -1,5 +1,5 @@
-import { jwtVerify } from 'jose-cjs';
-import {JWKS} from './joseCjs.js';
+import { jwtVerify } from 'jose';
+import {JWKS} from './joseJs.js';
 
 export const verifyToken = async (req, res, next) => {
     try {
@@ -16,7 +16,7 @@ export const verifyToken = async (req, res, next) => {
         }
 
         const token = authHeader.split(" ")[1];
-        console.log(token);
+        // console.log(token);
             if (!token) {
                 return res
                     .status(401)
@@ -33,9 +33,11 @@ export const verifyToken = async (req, res, next) => {
         // console.log(payload);
 
         req.user = payload;
-
+        // console.log("BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL);
         next();
     } catch (error) {
+        // console.error(error);
+
         return res
             .status(500)
             .json({

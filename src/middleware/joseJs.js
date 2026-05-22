@@ -1,4 +1,4 @@
-import { createRemoteJWKSet } from 'jose-cjs';
+import { createRemoteJWKSet } from 'jose';
 
 const authUrl = process.env.BETTER_AUTH_URL;
 

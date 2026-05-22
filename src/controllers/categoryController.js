@@ -42,3 +42,25 @@ export const getTopFiveCategory = async (req, res) => {
 
     }
 };
+
+export const getAllCategories = async (req, res) => {
+  try {
+    const { categoryCollection } = getCollections();
+
+    const categories = await categoryCollection
+      .find({})
+      .project({ _id: 0, name: 1 })
+      .toArray();
+
+    return res.status(200).json({
+      success: true,
+      message: "Categories fetched successfully",
+      data: categories,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};

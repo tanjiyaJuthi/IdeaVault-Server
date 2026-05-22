@@ -106,42 +106,36 @@ export const getAllIdea = async (req, res) => {
     }
 };
 
-// get idea by slug
-export const getIdeaBySlug = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
-        const {slug} = req.params;
+// get idea by id
+export const getIdeaByid = async (req, res) => {
+  try {
+    const { ideaCollection } = getCollections();
 
-        const normalizedSlug = slug.toLowerCase().trim();
+    const { id } = req.params;
 
-        const safeSlug = escapeRegex(normalizedSlug);
+    const result = await ideaCollection.findOne({
+      _id: new ObjectId(id),
+    });
 
-        const result = await ideaCollection.findOne({
-            slug: { $regex: `^${safeSlug}$`, $options: "i" }
-        });
-
-        if (!result) {
-            return res.status(404).json({
-                success: false,
-                message: "Idea not found",
-            });
-        }
-        
-        // console.log(result);
-        return res.status(200).json({
-            success: true,
-            message: "Idea fetched successfully",
-            data: result,
-        });
-
-    } catch (error) {
-        // console.error("GET /idea error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Idea not found",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Idea fetched successfully",
+      data: result,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
 };
 
 // featured idea
@@ -188,27 +182,38 @@ export const searchIdeas = async (req, res) => {
       endDate,
     } = req.query;
 
-    let query = {};
+    const query = {};
 
     if (category && category !== "all") {
       query.category = category;
     }
-
+    
     if (startDate || endDate) {
       query.createdAt = {};
 
       if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
+        const start = new Date(startDate);
+        if (!isNaN(start.getTime())) {
+          query.createdAt.$gte = start;
+        }
       }
 
       if (endDate) {
-        query.createdAt.$lte = new Date(endDate);
+        const end = new Date(endDate);
+        if (!isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end;
+        }
+      }
+
+      if (Object.keys(query.createdAt).length === 0) {
+        delete query.createdAt;
       }
     }
 
-    if (search) {
+    if (search.trim()) {
       query.ideaTitle = {
-        $regex: search,
+        $regex: search.trim(),
         $options: "i",
       };
     }
@@ -227,7 +232,7 @@ export const searchIdeas = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -238,7 +243,7 @@ export const getIdeasByUser = async (req, res) => {
         const { ideaCollection } = getCollections();
         const userId = req.params.userId;
 
-        if (req.user.id !== userId) {
+        if (req.user.sub !== userId) {
             return res.status(403).json({
                 success: false,
                 message: "Forbidden"
