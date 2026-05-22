@@ -5,7 +5,8 @@ import {verifyToken} from "../middleware/verifyToken.js";
 import {
     addComment, 
     getCommentByUser, 
-    deleteComment 
+    deleteComment,
+    getCommentsByIdea
 } from '../controllers/commentController.js';
 
 const commentRoutes =  express.Router();
@@ -14,6 +15,12 @@ commentRoutes.post(
     "/",
     verifyToken,
     addComment
+);
+
+commentRoutes.get(
+    "/idea/:ideaId",
+    verifyToken,
+    getCommentsByIdea
 );
 
 commentRoutes.get(

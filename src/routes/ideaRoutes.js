@@ -22,7 +22,7 @@ IdeaRoutes.get("/search", searchIdeas);
 IdeaRoutes.get("/featured-idea", featuredIdeaByCategory);
 
 IdeaRoutes.get(
-  "/user/:userId",
+  "/my-ideas",
   verifyToken,
   getIdeasByUser
 );

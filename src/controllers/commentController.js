@@ -4,97 +4,86 @@ import client from "../config/db.js";
 
 // add a comment
 export const addComment = async (req, res) => {
-    const userId = req.user.id;
-    // console.log('user: ', req.user);
-    let session;
-    
-    try {
-        session = client.startSession()
+  const userId = req.user.id;
+  let session;
 
-        const { commentCollection, ideaCollection } = getCollections();
+  try {
+    session = client.startSession();
 
-        const {
-            userName,
-            userImage,
-            ideaId,
-            ideaTitle,
-            shortDescription,
-            detailedDescription,
-            category,
-            tags,
-            imageUrl,
-            estimatedBudget,
-            targetAudience,
-            problemStatement,
-            proposedSolution
-        } = req.body;
+    const { commentCollection, ideaCollection } = getCollections();
 
-        let result;
+    const { ideaId, commentText } = req.body;
 
-        await session.withTransaction(async () => {
-            const existingComment = await commentCollection.findOne(
-                {
-                    userId,
-                    ideaId,
-                },
-                { session }
-            );
-
-            if (existingComment) {
-                throw new Error("You already commented on this idea");
-            }
-
-            const comment = await ideaCollection.findOne(
-                { _id: new ObjectId(ideaId) },
-                { session }
-            );
-
-            if (!comment) {
-                throw new Error("Comment not found");
-            }
-
-            const commentData = await commentCollection.insertOne({
-                    userId,
-                    userName,
-                    userImage,
-                    ideaTitle,
-                    shortDescription,
-                    detailedDescription,
-                    category,
-                    tags,
-                    imageUrl,
-                    estimatedBudget,
-                    targetAudience,
-                    problemStatement,
-                    proposedSolution,
-                    createdAt: new Date(),
-                },
-                { session }
-            );
-
-            await ideaCollection.updateOne(
-                { _id: new ObjectId(ideaId) },
-                { session }
-            );
-
-            result = commentData;
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Comment created successfully",
-            data: result,
-        });
-
-    } catch (error) {
-        return res.status(400).json({
-            success: false,
-            message: error.message || "Create Comment failed",
-        });
-    } finally {
-        if (session) await session.endSession();
+    if (!ideaId || !commentText) {
+      return res.status(400).json({
+        success: false,
+        message: "ideaId and commentText are required",
+      });
     }
-}
+
+    let result;
+
+    await session.withTransaction(async () => {
+      // 1. check duplicate comment (optional rule)
+      const existingComment = await commentCollection.findOne(
+        {
+          userId,
+          ideaId: new ObjectId(ideaId),
+        },
+        { session }
+      );
+
+      if (existingComment) {
+        throw new Error("You already commented on this idea");
+      }
+
+      // 2. verify idea exists
+      const idea = await ideaCollection.findOne(
+        { _id: new ObjectId(ideaId) },
+        { session }
+      );
+
+      if (!idea) {
+        throw new Error("Idea not found");
+      }
+
+      // 3. create comment (SAFE USER DATA FROM TOKEN)
+      const commentData = await commentCollection.insertOne(
+        {
+          userId,
+          userName: req.user.name || "Anonymous",
+          userImage: req.user.image || "/avatar.png",
+          ideaId: new ObjectId(ideaId),
+          commentText,
+          createdAt: new Date(),
+        },
+        { session }
+      );
+
+      // 4. update idea stats
+      await ideaCollection.updateOne(
+        { _id: new ObjectId(ideaId) },
+        { $inc: { commentCount: 1 } },
+        { session }
+      );
+
+      result = commentData;
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Comment created successfully",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Create Comment failed",
+    });
+  } finally {
+    if (session) await session.endSession();
+  }
+};
 
 // get comment by userId
 export const getCommentByUser = async (req, res) => {
@@ -152,4 +141,26 @@ export const deleteComment = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: "Internal server error" });
     }
+};
+
+export const getCommentsByIdea = async (req, res) => {
+  try {
+    const { commentCollection } = getCollections();
+    const { ideaId } = req.params;
+
+    const comments = await commentCollection
+      .find({ ideaId: new ObjectId(ideaId) }) 
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json({
+      success: true,
+      data: comments,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch comments",
+    });
+  }
 };

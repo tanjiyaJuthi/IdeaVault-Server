@@ -6,82 +6,85 @@ import { escapeRegex, generateSlug } from '../lib/helper.js';
 
 // add idea
 export const addIdea = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
-        const idea = req.body;
+  try {
+    const { ideaCollection } = getCollections();
+    const idea = req.body;
 
-        if (!idea || typeof idea !== "object") {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid request body",
-            });
-        }
+    const userId = req.user.sub || req.user.id;
 
-        const requiredFields = [
-            "ideaTitle",
-            "shortDescription",
-            "category",
-            "tags",
-            "imageUrl",
-            "estimatedBudget",
-            "problemStatement",
-            "proposedSolution",
-            "detailedDescription",
-        ];
-
-        const missingFields = requiredFields.filter(
-            (field) => !idea[field] || idea[field].toString().trim() === ""
-        );
-
-        if (missingFields.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Missing required fields",
-                missingFields,
-            });
-        }
-
-        if (typeof idea.tags === "string") {
-            idea.tags = idea.tags
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean);
-        }
-
-        if (!Array.isArray(idea.tags)) {
-            return res.status(400).json({
-                success: false,
-                message: "Tags must be a string or array",
-            });
-        }
-
-        idea.tags = idea.tags.filter(Boolean);
-
-        idea.slug = generateSlug(idea.ideaTitle);
-
-        const result = await ideaCollection.insertOne({
-            ...idea,
-            createdAt: new Date(),
-        });
-
-        const createdIdea = await ideaCollection.findOne({
-            _id: result.insertedId,
-        });
-
-        return res.status(201).json({
-            success: true,
-            message: "Idea created successfully",
-            data: createdIdea,
-        });
-
-    } catch (error) {
-        console.error("POST /idea error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+    if (!idea || typeof idea !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request body",
+      });
     }
+
+    const requiredFields = [
+      "ideaTitle",
+      "shortDescription",
+      "category",
+      "tags",
+      "imageUrl",
+      "estimatedBudget",
+      "problemStatement",
+      "proposedSolution",
+      "detailedDescription",
+    ];
+
+    const missingFields = requiredFields.filter(
+      (field) => !idea[field] || idea[field].toString().trim() === ""
+    );
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+        missingFields,
+      });
+    }
+
+    if (typeof idea.tags === "string") {
+      idea.tags = idea.tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+    }
+
+    if (!Array.isArray(idea.tags)) {
+      return res.status(400).json({
+        success: false,
+        message: "Tags must be a string or array",
+      });
+    }
+
+    idea.tags = idea.tags.filter(Boolean);
+
+    const newIdea = {
+      ...idea,
+      createdBy: userId,
+      createdAt: new Date(),
+    };
+
+    const result = await ideaCollection.insertOne(newIdea);
+
+    const createdIdea = await ideaCollection.findOne({
+      _id: result.insertedId,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Idea created successfully",
+      data: createdIdea,
+    });
+
+  } catch (error) {
+    console.error("POST /idea error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
 
 // get all idea
@@ -237,111 +240,120 @@ export const searchIdeas = async (req, res) => {
   }
 };
 
-// ideas by user id
+// ideas by user
 export const getIdeasByUser = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
-        const userId = req.params.userId;
+  try {
+    const { ideaCollection } = getCollections();
 
-        if (req.user.sub !== userId) {
-            return res.status(403).json({
-                success: false,
-                message: "Forbidden"
-            });
-        }
+    const userId = req.user?.sub || req.user?.id;
 
-        const result = await ideaCollection
-            .find({ userId })
-            .sort({ createdAt: -1 })
-            .toArray();
-
-        res.json({
-            success: true,
-            data: result,
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found in token",
+      });
     }
+
+    const result = await ideaCollection
+      .find({ createdBy: userId })
+      .toArray();
+
+    return res.status(200).json({
+      success: true,
+      message: "Ideas fetched successfully",
+      data: result,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
 };
 
 // update idea
 export const updateIdea = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
-        const { id } = req.params;
+  try {
+    const { ideaCollection } = getCollections();
+    const { id } = req.params;
 
-        const updatedIdea = req.body;
+    const updatedIdea = req.body;
 
-        const allowedFields = [
-            "ideaTitle",
-            "shortDescription",
-            "detailedDescription",
-            "category",
-            "tags",
-            "imageUrl",
-            "estimatedBudget",
-            "targetAudience",
-            "problemStatement",
-            "proposedSolution"
-        ];
+    const allowedFields = [
+      "ideaTitle",
+      "shortDescription",
+      "detailedDescription",
+      "category",
+      "tags",
+      "imageUrl",
+      "estimatedBudget",
+      "targetAudience",
+      "problemStatement",
+      "proposedSolution",
+    ];
 
-        const safeUpdate = {};
-
-        for (const key of allowedFields) {
-            if (updatedIdea[key] !== undefined) {
-                safeUpdate[key] = updatedIdea[key];
-            }
-        }
-
-        if (!updatedIdea || Object.keys(updatedIdea).length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Idea data is required",
-            });
-        }
-
-        const existing = await ideaCollection.findOne({
-            _id: new ObjectId(id),
-        });
-
-        if (!existing) {
-            return res.status(404).json({
-                success: false,
-                message: "Idea not found",
-            });
-        }
-
-        if (updatedIdea.ideaTitle) {
-            updatedIdea.slug = generateSlug(updatedIdea.ideaTitle);
-        }
-
-        await ideaCollection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: safeUpdate }
-        );
-
-        const updatedDoc = await ideaCollection.findOne({
-            _id: new ObjectId(id),
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: "Idea updated successfully",
-            data: updatedDoc,
-        });
-
-    } catch (error) {
-        // console.error("PATCH /idea error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+    if (!updatedIdea || Object.keys(updatedIdea).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Idea data is required",
+      });
     }
+
+    const existing = await ideaCollection.findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: "Idea not found",
+      });
+    }
+
+    // OPTIONAL SECURITY CHECK
+    const userId = req.user.sub || req.user.id;
+
+    if (existing.createdBy !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden access",
+      });
+    }
+
+    const safeUpdate = {};
+
+    for (const key of allowedFields) {
+      if (updatedIdea[key] !== undefined) {
+        safeUpdate[key] = updatedIdea[key];
+      }
+    }
+
+    await ideaCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: safeUpdate,
+      }
+    );
+
+    const updatedDoc = await ideaCollection.findOne({
+      _id: new ObjectId(id),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Idea updated successfully",
+      data: updatedDoc,
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
 
 // delete idea
