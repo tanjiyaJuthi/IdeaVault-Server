@@ -221,3 +221,65 @@ export const updateComment = async (req, res) => {
     });
   }
 };
+
+// get comment by user
+export const getMyComment = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { commentCollection } = getCollections();
+
+    const comments = await commentCollection
+      .aggregate([
+        {
+          $match: {
+            userId: userId,
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        {
+          $lookup: {
+            from: "ideas",
+            localField: "ideaId",
+            foreignField: "_id",
+            as: "idea",
+          },
+        },
+
+        {
+          $unwind: {
+            path: "$idea",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+
+        {
+          $project: {
+            _id: 1,
+            commentText: 1,
+            createdAt: 1,
+            ideaId: 1,
+            ideaTitle: "$idea.ideaTitle",
+            shortDescription: "$idea.shortDescription",
+            category: "$idea.category",
+            imageUrl: "$idea.imageUrl",
+          },
+        },
+      ])
+      .toArray();
+
+    return res.status(200).json({
+      success: true,
+      data: comments,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch comments",
+    });
+  }
+};

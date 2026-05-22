@@ -8,14 +8,15 @@ import {
     deleteComment,
     getCommentsByIdea,
     updateComment,
+    getMyComment,
 } from '../controllers/commentController.js';
 
 const commentRoutes =  express.Router();
 
-commentRoutes.post(
-    "/",
-    verifyToken,
-    addComment
+commentRoutes.get(
+  "/my-interactions",
+  verifyToken,
+  getMyComment
 );
 
 commentRoutes.get(
@@ -28,6 +29,12 @@ commentRoutes.get(
     "/:userId",
     verifyToken,
     getCommentByUser
+);
+
+commentRoutes.post(
+    "/",
+    verifyToken,
+    addComment
 );
 
 commentRoutes.put(
