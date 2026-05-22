@@ -6,7 +6,8 @@ import {
     addComment, 
     getCommentByUser, 
     deleteComment,
-    getCommentsByIdea
+    getCommentsByIdea,
+    updateComment,
 } from '../controllers/commentController.js';
 
 const commentRoutes =  express.Router();
@@ -27,6 +28,12 @@ commentRoutes.get(
     "/:userId",
     verifyToken,
     getCommentByUser
+);
+
+commentRoutes.put(
+  "/:commentId",
+  verifyToken,
+  updateComment
 );
 
 commentRoutes.delete(

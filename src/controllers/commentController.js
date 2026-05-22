@@ -143,6 +143,7 @@ export const deleteComment = async (req, res) => {
     }
 };
 
+// comments by idea
 export const getCommentsByIdea = async (req, res) => {
   try {
     const { commentCollection } = getCollections();
@@ -161,6 +162,62 @@ export const getCommentsByIdea = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch comments",
+    });
+  }
+};
+
+// update comment
+export const updateComment = async (req, res) => {
+  try {
+    const { commentCollection } = getCollections();
+    const { commentId } = req.params;
+    const { commentText } = req.body;
+
+    const userId = req.user.id;
+
+    if (!commentText) {
+      return res.status(400).json({
+        success: false,
+        message: "commentText is required",
+      });
+    }
+
+    const comment = await commentCollection.findOne({
+      _id: new ObjectId(commentId),
+    });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
+    }
+
+    if (comment.userId !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    await commentCollection.updateOne(
+      { _id: new ObjectId(commentId) },
+      {
+        $set: {
+          commentText,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.json({
+      success: true,
+      message: "Comment updated",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
     });
   }
 };
