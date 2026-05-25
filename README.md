@@ -1,1 +1,1 @@
-# Server side of [IdeaVault](https://github.com/tanjiyaJuthi/IdeaVault)
+# Server side of [IdeoNexis](https://github.com/tanjiyaJuthi/IdeoNexis)

@@ -1,21 +1,14 @@
-import { MongoClient, ServerApiVersion } from "mongodb";
+import mongoose from "mongoose";
 
-const mongoUri = process.env.MONGO_URI;
+export const connectMongoose = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+            dbName: "ideonexis",
+        });
 
-// console.log(mongoUri);
-
-const client = new MongoClient(mongoUri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
+        console.log("Mongoose connected");
+    } catch (err) {
+        console.error("Mongoose connection error:", err);
+        process.exit(1);
     }
-});
-
-export const connectDB = async () => {
-    await client.connect();
-    
-    return client.db("ideonexis");
 };
-
-export default client;

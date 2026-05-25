@@ -1,23 +1,10 @@
-import { ObjectId } from 'mongodb';
-
-import {getCollections} from '../db/collections.js';
-
-import { escapeRegex, generateSlug } from '../lib/helper.js';
+import { Idea } from "../models/ideaModel.js";
 
 // add idea
 export const addIdea = async (req, res) => {
   try {
-    const { ideaCollection } = getCollections();
     const idea = req.body;
-
-    const userId = req.user.sub || req.user.id;
-
-    if (!idea || typeof idea !== "object") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid request body",
-      });
-    }
+    const userId = req.user.id;
 
     const requiredFields = [
       "ideaTitle",
@@ -59,24 +46,16 @@ export const addIdea = async (req, res) => {
 
     idea.tags = idea.tags.filter(Boolean);
 
-    const newIdea = {
+    const newIdea = await Idea.create({
       ...idea,
-      createdBy: userId,
-      createdAt: new Date(),
-    };
-
-    const result = await ideaCollection.insertOne(newIdea);
-
-    const createdIdea = await ideaCollection.findOne({
-      _id: result.insertedId,
+      createdBy: userId
     });
 
     return res.status(201).json({
       success: true,
       message: "Idea created successfully",
-      data: createdIdea,
+      data: newIdea,
     });
-
   } catch (error) {
     console.error("POST /idea error:", error);
 
@@ -87,38 +66,30 @@ export const addIdea = async (req, res) => {
   }
 };
 
-// get all idea
+// get all ideas
 export const getAllIdea = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
-        const result = await ideaCollection.find().toArray();
-        // console.log(result);
-        return res.status(200).json({
-            success: true,
-            message: "Ideas fetched successfully",
-            data: result,
-        });
+  try {
+    const result = await Idea.find();
 
-    } catch (error) {
-        // console.error("GET /idea error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Idea server error",
-        });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Ideas fetched successfully",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Idea server error",
+    });
+  }
 };
 
 // get idea by id
 export const getIdeaByid = async (req, res) => {
   try {
-    const { ideaCollection } = getCollections();
-
     const { id } = req.params;
 
-    const result = await ideaCollection.findOne({
-      _id: new ObjectId(id),
-    });
+    const result = await Idea.findById(id);
 
     if (!result) {
       return res.status(404).json({
@@ -132,7 +103,6 @@ export const getIdeaByid = async (req, res) => {
       message: "Idea fetched successfully",
       data: result,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -141,43 +111,32 @@ export const getIdeaByid = async (req, res) => {
   }
 };
 
-// featured idea
+// featured ideas by category
 export const featuredIdeaByCategory = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
+  try {
+    const { category } = req.query;
 
-        const { category } = req.query;
+    const query = category ? { category } : {};
 
-        let query = {};
+    const result = await Idea.find(query)
+      .sort({ rating: -1 })
+      .limit(10);
 
-        if (category) {
-        query.category = category;
-        }
-
-        const result = await ideaCollection
-        .find(query)
-        .sort({ rating: -1 })
-        .limit(10)
-        .toArray();
-
-        return res.status(200).json({
-        success: true,
-        data: result,
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-        success: false,
-        message: error.message,
-        });
-    }
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
-// search idea
+// search ideas
 export const searchIdeas = async (req, res) => {
   try {
-    const { ideaCollection } = getCollections();
-
     const {
       search = "",
       category = "",
@@ -190,7 +149,7 @@ export const searchIdeas = async (req, res) => {
     if (category && category !== "all") {
       query.category = category;
     }
-    
+
     if (startDate || endDate) {
       query.createdAt = {};
 
@@ -221,17 +180,14 @@ export const searchIdeas = async (req, res) => {
       };
     }
 
-    const result = await ideaCollection
-      .find(query)
+    const result = await Idea.find(query)
       .sort({ createdAt: -1 })
-      .limit(50)
-      .toArray();
+      .limit(50);
 
     return res.status(200).json({
       success: true,
       data: result,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -243,9 +199,7 @@ export const searchIdeas = async (req, res) => {
 // ideas by user
 export const getIdeasByUser = async (req, res) => {
   try {
-    const { ideaCollection } = getCollections();
-
-    const userId = req.user?.sub || req.user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({
@@ -254,16 +208,13 @@ export const getIdeasByUser = async (req, res) => {
       });
     }
 
-    const result = await ideaCollection
-      .find({ createdBy: userId })
-      .toArray();
+    const result = await Idea.find({ createdBy: userId });
 
     return res.status(200).json({
       success: true,
       message: "Ideas fetched successfully",
       data: result,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -275,9 +226,7 @@ export const getIdeasByUser = async (req, res) => {
 // update idea
 export const updateIdea = async (req, res) => {
   try {
-    const { ideaCollection } = getCollections();
     const { id } = req.params;
-
     const updatedIdea = req.body;
 
     const allowedFields = [
@@ -300,9 +249,7 @@ export const updateIdea = async (req, res) => {
       });
     }
 
-    const existing = await ideaCollection.findOne({
-      _id: new ObjectId(id),
-    });
+    const existing = await Idea.findById(id);
 
     if (!existing) {
       return res.status(404).json({
@@ -311,10 +258,9 @@ export const updateIdea = async (req, res) => {
       });
     }
 
-    // OPTIONAL SECURITY CHECK
     const userId = req.user.sub || req.user.id;
 
-    if (existing.createdBy !== userId) {
+    if (existing.createdBy.toString() !== userId) {
       return res.status(403).json({
         success: false,
         message: "Forbidden access",
@@ -329,23 +275,18 @@ export const updateIdea = async (req, res) => {
       }
     }
 
-    await ideaCollection.updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: safeUpdate,
-      }
+    await Idea.updateOne(
+      { _id: id },
+      { $set: safeUpdate }
     );
 
-    const updatedDoc = await ideaCollection.findOne({
-      _id: new ObjectId(id),
-    });
+    const updatedDoc = await Idea.findById(id);
 
     return res.status(200).json({
       success: true,
       message: "Idea updated successfully",
       data: updatedDoc,
     });
-
   } catch (error) {
     console.error(error);
 
@@ -358,28 +299,24 @@ export const updateIdea = async (req, res) => {
 
 // delete idea
 export const deleteIdea = async (req, res) => {
-    try {
-        const { ideaCollection } = getCollections();
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        if (!ObjectId.isValid(id)) {
-            return res.status(400).json({ error: "Invalid ID format" });
-        }
+    const result = await Idea.findByIdAndDelete(id);
 
-        const result = await ideaCollection.deleteOne({
-            _id: new ObjectId(id)
-        });
-
-        if (result.deletedCount === 0) {
-            return res.status(404).json({ message: "Not found" });
-        }
-
-        res.json({
-            message: "Idea Deleted successfully",
-            result
-        });
-
-    } catch (error) {
-        res.status(500).json({ error: "Internal server error" });
+    if (!result) {
+      return res.status(404).json({
+        message: "Not found",
+      });
     }
+
+    return res.json({
+      message: "Idea deleted successfully",
+      result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
 };

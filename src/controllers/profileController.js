@@ -1,15 +1,10 @@
-import { ObjectId } from "mongodb";
-import { getCollections } from "../db/collections.js";
+import { Profile } from "../models/profileModel.js";
+import { Idea } from "../models/ideaModel.js";
+import { Comment } from "../models/commentModel.js";
 
 // ================= GET FULL PROFILE =================
 export const getMyProfile = async (req, res) => {
-  try {
-    const {
-      profileCollection,
-      ideaCollection,
-      commentCollection,
-    } = getCollections();
-
+    try {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -19,11 +14,7 @@ export const getMyProfile = async (req, res) => {
       });
     }
 
-    const user = await profileCollection.findOne({
-      _id: new ObjectId(userId),
-    });
-
-    console.log(user);
+    const user = await Profile.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -32,23 +23,16 @@ export const getMyProfile = async (req, res) => {
       });
     }
 
-    const ideas = await ideaCollection
-      .find({
-        createdBy: userId,
-      })
-      .sort({
-        createdAt: -1,
-      })
-      .toArray();
+    const ideas = await Idea.find({
+      createdBy: userId,
+    }).sort({
+      createdAt: -1,
+    });
 
-    const comments = await commentCollection
-      .find({
-        userId: userId,
-      })
-      .sort({
-        createdAt: -1,
-      })
-      .toArray();
+    const comments = await Comment
+      .find({ userId: userId,})
+      .populate("ideaId")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -75,10 +59,9 @@ export const getMyProfile = async (req, res) => {
   }
 };
 
+// ================= UPDATE PROFILE IMAGE =================
 export const updateProfileImage = async (req, res) => {
   try {
-    const { profileCollection } = getCollections();
-
     const userId = req.user?.id;
     const { image } = req.body;
 
@@ -105,12 +88,12 @@ export const updateProfileImage = async (req, res) => {
       });
     }
 
-    const updatedProfile = await profileCollection.findOneAndUpdate(
-      {_id: new ObjectId(userId)},
+    const updatedProfile = await Profile.findByIdAndUpdate(
+      userId,
       { $set: { image } },
-      { new: true }
+      { returnDocument: "after" }
     );
-    
+
     if (!updatedProfile) {
       return res.status(404).json({
         success: false,

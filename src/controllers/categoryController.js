@@ -1,12 +1,9 @@
-import {getCollections} from '../db/collections.js';
-import { ObjectId } from "mongodb";
+import { Idea } from '../models/ideaModel.js';
+import { Category } from '../models/categoryModel.js';
 
 export const getTopFiveCategory = async (req, res) => {
     try {
-
-        const { ideaCollection } = getCollections();
-
-        const result = await ideaCollection.aggregate([
+        const result = await Idea.aggregate([
             {
                 $group: {
                     _id: "$category",
@@ -28,7 +25,7 @@ export const getTopFiveCategory = async (req, res) => {
                     totalIdeas: 1,
                 },
             },
-        ]).toArray();
+        ]);
 
         return res.status(200).json({
             success: true,
@@ -45,23 +42,21 @@ export const getTopFiveCategory = async (req, res) => {
 };
 
 export const getAllCategories = async (req, res) => {
-  try {
-    const { categoryCollection } = getCollections();
+    try {
+        const categories = await Category
+            .find({})
+            .select({ _id: 0, name: 1 })
+            .lean();
 
-    const categories = await categoryCollection
-      .find({})
-      .project({ _id: 0, name: 1 })
-      .toArray();
-
-    return res.status(200).json({
-      success: true,
-      message: "Categories fetched successfully",
-      data: categories,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
+        return res.status(200).json({
+            success: true,
+            message: "Categories fetched successfully",
+            data: categories,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error",
+        });
+    }
 };
